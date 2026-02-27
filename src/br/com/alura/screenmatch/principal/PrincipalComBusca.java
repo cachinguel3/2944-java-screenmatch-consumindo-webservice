@@ -1,87 +1,69 @@
 package br.com.alura.screenmatch.principal;
 
+import br.com.alura.screenmatch.excecao.ErroDeConversaoDeAnoException;
+import br.com.alura.screenmatch.modelos.Titulo;
+import br.com.alura.screenmatch.modelos.TituloOmdb;
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import javax.xml.transform.Source;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Scanner;
 
 
 public class PrincipalComBusca {
-    public static String prettyPrintJson(String json) {
-        if (json == null || json.isBlank()) return json;
-
-        StringBuilder out = new StringBuilder();
-        int indent = 0;
-        boolean inString = false;
-        boolean escape = false;
-
-        for (int i = 0; i < json.length(); i++) {
-            char c = json.charAt(i);
-
-            if (inString) {
-                out.append(c);
-                if (escape) {
-                    escape = false;
-                } else if (c == '\\') {
-                    escape = true;
-                } else if (c == '"') {
-                    inString = false;
-                }
-                continue;
-            }
-
-            switch (c) {
-                case '"':
-                    inString = true;
-                    out.append(c);
-                    break;
-
-                case '{':
-                case '[':
-                    out.append(c).append('\n');
-                    indent++;
-                    appendIndent(out, indent);
-                    break;
-
-                case '}':
-                case ']':
-                    out.append('\n');
-                    indent = Math.max(0, indent - 1);
-                    appendIndent(out, indent);
-                    out.append(c);
-                    break;
-
-                case ',':
-                    out.append(c).append('\n');
-                    appendIndent(out, indent);
-                    break;
-
-                case ':':
-                    out.append(c).append(' ');
-                    break;
-
-                default:
-                    if (!Character.isWhitespace(c)) out.append(c);
-                    break;
-            }
-        }
-        return out.toString();
-    }
-
-    private static void appendIndent(StringBuilder sb, int indent) {
-        sb.append("  ".repeat(Math.max(0, indent))); // 2 spaces per level
-    }
     public static void main(String[] args) throws IOException, InterruptedException {
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://pokeapi.co/api/v2/pokemon/?limit=20&offset=20"))
-                .build();
+        Scanner leitura = new Scanner(System.in);
+        System.out.println("Digite um filme para busca: ");
+        var busca = leitura.nextLine();
 
-        HttpResponse <String> response = client
-                .send(request, HttpResponse.BodyHandlers.ofString());
+        String endereco = "http://www.omdbapi.com/?t=" + busca.replace(" ", "+") + "&apikey=a293f5e9";
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(endereco))
+                    .build();
+
+            HttpResponse <String> response = client
+                    .send(request, HttpResponse.BodyHandlers.ofString());
 
 
-        System.out.println(prettyPrintJson(response.body()));
+            String json = response.body();
+            System.out.println(json);
+
+            Gson gson = new GsonBuilder()
+                    .setFieldNamingPolicy(FieldNamingPolicy.UPPER_CAMEL_CASE)
+                    .create();
+            TituloOmdb meuTituloOmdb = gson.fromJson(json, TituloOmdb.class);
+            System.out.println(meuTituloOmdb);
+            //try {
+            Titulo meuTitulo = new Titulo(meuTituloOmdb);
+            System.out.println("Título já convertido:");
+            System.out.println(meuTitulo);
+
+            FileWriter escrita = new FileWriter("filmes.txt");
+            escrita.write(meuTitulo.toString());
+            escrita.close();
+
+        } catch (NumberFormatException ex) {
+            System.out.println("Aconteceu um erro:");
+            System.out.println(ex.getMessage());
+        } catch (IllegalArgumentException ex) {
+            System.out.println("Algum erro de argumento na busca, verifique o endereço.");
+            System.out.println(ex.getMessage());
+        } catch (ErroDeConversaoDeAnoException ex) {
+            System.out.println(ex.getMessage());
+        }
+
+
+
+
+
     }
 }
